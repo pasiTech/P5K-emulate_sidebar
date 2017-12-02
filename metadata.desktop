@@ -10,7 +10,7 @@ X-Plasma-MainScript=code/main.js
 
 X-KDE-PluginInfo-Author=Mike Hill
 X-KDE-PluginInfo-Email=mikehill.pointless@gmail.com
-X-KDE-PluginInfo-Name=EmulateSidebar
+X-KDE-PluginInfo-Name=emulate-sidebar
 X-KDE-PluginInfo-Version=1
 
 X-KDE-PluginInfo-Depends=
