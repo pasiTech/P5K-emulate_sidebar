@@ -1,9 +1,43 @@
+/**
+ * Set up overrides for activities
+ * 
+ * Each entry must be the name of the activity with any of the following keys set
+ * - string side        // Whether the sidebar is on the 'left' or 'right'
+ * - int width          // The width of the sidebar
+ * - int padding        // Padding to adjust for theme borders
+ * - int xpos           // The x coordinate of a maximized window
+ * - int ypos           // The y coordinate of a maximized window
+ * - int maxHeight      // The height of a maximized window
+ * - int maxWidth       // The width of a maximized window
+ */
+var activityOverrides = {
+    // Plasma 5 ships with an activity named Default. If you haven't changed/removed it, set it here
+    Default: {},
+    
+    // Any settings here will be used if an exact match for the activity is not found
+    Fallback: {padding: 12}
+};
+
+
+/**
+ * Any window titles in here that match, will be ignored
+ */
 var ignoreWindowTitles = ['Plasma', 'Yakuake'];
 
-var activityOverrides = {
-    Default: {side: 'left', width: 172},
-    Fallback: {}
-};
+
+
+
+
+
+
+
+/**
+ * 
+ * NO MORE USER ADJUSTABLE FIELDS
+ * 
+ * Don't change anything below here, unless you know what you are doing
+ */
+
 
 
 /**
@@ -86,23 +120,23 @@ var activity = {
  */
 var desktop = {
     maxXpos: 0,
-    maxYpos: 0,
+    maxYpos: null,
     maxWidth: workspace.displayWidth,
-    maxHeight: workspace.displayHeight,
-    maxRect: function() {
+    maxHeight: null,
+    clientMax: function(client) {
         return {
             x: this.maxXpos,
-            y: this.maxYpos,
+            y: this.maxYpos || client.geometry.y,
             width: this.maxWidth,
-            height: this.maxHeight
+            height: this.maxHeight || client.geometry.height
         }
     },
     setGeometry: function() {
         var overrides = activity.overrides();
         this.maxXpos = overrides.xpos || this.calcDefaultX();
-        this.maxYpos = overrides.ypos || 0;
+        this.maxYpos = overrides.ypos;
         this.maxWidth = overrides.maxWidth || workspace.displayWidth - sidebar.width;
-        this.maxHeight = overrides.maxHeight || workspace.displayHeight;
+        this.maxHeight = overrides.maxHeight;
     },
     calcDefaultX: function() {
         if (sidebar.side == 'right') { return 0; }
@@ -158,10 +192,20 @@ var sidebar = {
         for (var i = 0; i < clients.length; i++) {
             if (! clients[i].dock) { continue; }
             var geometry = clients[i].geometry;
-            if (geometry.x < 10) {
+            
+            // Ignore if the panel is over half the screen width
+            if (geometry.width >= workspace.displayWidth * .5) {
+                continue;
+                
+            // Panel starts on the left side
+            } else if (geometry.x < 10) {
                 panelSide = 'left';
+                
+            // Panel starts on the right side
             } else if (geometry.x > workspace.displayWidth * .8) {
                 panelSide = 'right';
+                
+            // Middle panel, so ignore
             } else {
                 continue;
             }
@@ -203,7 +247,40 @@ workspace.clientAdded.connect(function(client) {
     activity.findName(function(name) {
         activity.setName(name);
         sidebar.setGeometry();
+        desktop.setGeometry();
         window.overlapAdjust(client);
+        
+        // Has the window been tiled or untiled?
+        /* This is a tricky one. The TileModeChanged signal does not indicate whether
+            it is being tiled or untiled. So I have to try to figure it out. Right now
+            I check to see if the window is about half the display width. If it is, then
+            it is being tiled. There are a number of problems with this approach.
+                1: A window that was 50% originally, will provide a false positive
+                2: Panels on the side will provide false negatives
+            
+            However, without another way to tell if an electric border has been
+            activated, I don't know what else to do! */        
+        client.quickTileModeChanged.connect(function() {
+            var relativeSize = Math.abs((workspace.displayWidth *.5) - client.geometry.width);
+            if (relativeSize > 1) { return; }
+
+            // Set the width to half the effective desktop width
+            var rect = client.geometry;
+            rect.width = desktop.maxWidth * .5;
+                
+            // If the tiling was on the right side, scoot the window over
+            /* Again, since there is nothing to expose which electric border was activated,
+                I have no idea, so I just try to see if the window ended up really close 
+                to the halfway mark. Same basic false positives as before. */
+            var relativePosition = Math.abs((workspace.displayWidth * .5) - client.geometry.x);
+            if (relativePosition < 2) {
+                rect.x = rect.x + (client.geometry.width - rect.width);
+            }
+            client.geometry = rect;
+            window.overlapAdjust(client);
+        });
+        
+        
     });
 });
     
@@ -214,6 +291,16 @@ workspace.clientMaximizeSet.connect(function(client, h, v) {
         activity.setName(name);
         sidebar.setGeometry();
         desktop.setGeometry();
-        client.geometry = desktop.maxRect();
+        client.geometry = desktop.clientMax(client);
     });
 });
+
+function objToString (obj) {
+    var str = '';
+    for (var p in obj) {
+        if (obj.hasOwnProperty(p)) {
+            str += p + '::' + obj[p] + '\n';
+        }
+    }
+    return str;
+}
