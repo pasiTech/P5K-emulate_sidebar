@@ -27,5 +27,6 @@ You can force the system to ignore panels. This allows you to even create differ
 4. Add any other settings for each Activity if you want
 
 # TO DO
-1. Allow full width panels along the top or bottom
-2. Respect sidebar when edge tiling, etc
+* Allow full width panels along the top or bottom  // Completed 12/02/17
+* Respect sidebar when edge tiling, etc            // Completed 12/02/17
+Allow virtual sidebars along the top or bottom
